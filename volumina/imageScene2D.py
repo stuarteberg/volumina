@@ -277,11 +277,11 @@ class ImageScene2D(QGraphicsScene):
         self._tileProvider = TileProvider(self._tiling, self._stackedImageSources)
         self._tileProvider.sceneRectChanged.connect(self.invalidateViewports)
 
-        if self._dirtyIndicator:
-            self.removeItem(self._dirtyIndicator)
+        #if self._dirtyIndicator:
+        #    self.removeItem(self._dirtyIndicator)
         del self._dirtyIndicator
         self._dirtyIndicator = DirtyIndicator(self._tiling)
-        self.addItem(self._dirtyIndicator)
+        #self.addItem(self._dirtyIndicator)
 
 
     def __init__(self, posModel, along, preemptive_fetch_number=5,
