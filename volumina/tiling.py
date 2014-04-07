@@ -20,6 +20,7 @@ import time
 import collections
 import warnings
 from collections import defaultdict, OrderedDict
+import threading
 
 from threading import Lock
 
@@ -45,10 +46,14 @@ def get_render_pool():
         renderer_pool = QThreadPool()
     return renderer_pool
 
+
 # used to keep references to QRunnable subclasses
 # unless we manually keep a reference, Python garbage collects these
 # objects before they are run by Qt
 render_tasks = dict()
+
+next_render_thread_id = 1
+next_render_thread_id_lock = threading.Lock()
 
 class TileRenderer(QRunnable):
     def __init__(self, tile_provider, ims, transform, tile_nr, stack_id,
@@ -68,7 +73,23 @@ class TileRenderer(QRunnable):
         global render_tasks
         render_tasks[id(self)] = self
 
+    @staticmethod
+    def _update_thread_name():
+        """
+        Before running the task, ensure that the current thread has a recognizable name.
+        (Only the first task to run on the thread will actually change the name.)
+        
+        Note: Clients are allowed to depend on the fact that volumina rendering 
+              threads contain the word 'TileRendererThread' in their thread name  
+        """
+        if 'TileRendererThread' not in threading.current_thread().name:
+            with next_render_thread_id_lock:
+                global next_render_thread_id
+                threading.current_thread().name = 'TileRendererThread-{}'.format(next_render_thread_id) 
+                next_render_thread_id += 1
+    
     def run(self):
+        TileRenderer._update_thread_name()
         try:
             try:
                 layerTimestamp = self.cache.layerTimestamp(self.stack_id,
