@@ -40,10 +40,13 @@ PREFETCH_PRIORITY=10
 NORMAL_PRIORITY=20
 renderer_pool = None
 
+from lazyflow.request.threadPool import ThreadPool
+
 def get_render_pool():
     global renderer_pool
     if renderer_pool is None:
-        renderer_pool = QThreadPool()
+        #renderer_pool = QThreadPool()
+        renderer_pool = ThreadPool(4)
     return renderer_pool
 
 
@@ -57,7 +60,7 @@ next_render_thread_id_lock = threading.Lock()
 
 class TileRenderer(QRunnable):
     def __init__(self, tile_provider, ims, transform, tile_nr, stack_id,
-            image_req, timestamp, cache):
+            image_req, timestamp, cache, priority):
         super(TileRenderer, self).__init__()
         self.tile_provider = tile_provider
         self.ims = ims
@@ -72,6 +75,13 @@ class TileRenderer(QRunnable):
         # task before it gets run by Qt
         global render_tasks
         render_tasks[id(self)] = self
+        self._priority = priority
+        
+    def __lt__(self, other):
+        return self._priority < other._priority
+
+    def __call__(self):
+        return self.run()
 
     @staticmethod
     def _update_thread_name():
@@ -605,13 +615,14 @@ class TileProvider( QObject ):
                                                 self._sims.viewOccluded() )
                         else:
                             pool = get_render_pool()
-                            task = TileRenderer( self, ims, transform,
-                                    tile_no, stack_id, ims_req,
-                                    time.time(), self._cache)
                             priority  = PREFETCH_PRIORITY if prefetch \
                                     else NORMAL_PRIORITY
+                            task = TileRenderer( self, ims, transform,
+                                    tile_no, stack_id, ims_req,
+                                    time.time(), self._cache, priority)
 
-                            pool.start(task, priority)
+                            #pool.start(task, priority)
+                            pool.wake_up( task )
         except KeyError:
             pass
 
