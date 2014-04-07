@@ -23,6 +23,7 @@ from collections import defaultdict, OrderedDict
 import threading
 
 from threading import Lock
+from multiprocessing.pool import ThreadPool
 
 #SciPy
 import numpy
@@ -43,7 +44,8 @@ renderer_pool = None
 def get_render_pool():
     global renderer_pool
     if renderer_pool is None:
-        renderer_pool = QThreadPool()
+        #renderer_pool = QThreadPool()
+        renderer_pool = ThreadPool(4)
     return renderer_pool
 
 
@@ -73,6 +75,9 @@ class TileRenderer(QRunnable):
         global render_tasks
         render_tasks[id(self)] = self
 
+    def __call__(self):
+        return self.run()
+
     @staticmethod
     def _update_thread_name():
         """
@@ -90,6 +95,7 @@ class TileRenderer(QRunnable):
     
     def run(self):
         TileRenderer._update_thread_name()
+        print threading.current_thread().name
         try:
             try:
                 layerTimestamp = self.cache.layerTimestamp(self.stack_id,
@@ -611,7 +617,8 @@ class TileProvider( QObject ):
                             priority  = PREFETCH_PRIORITY if prefetch \
                                     else NORMAL_PRIORITY
 
-                            pool.start(task, priority)
+                            #pool.start(task, priority)
+                            pool.apply_async(task)
         except KeyError:
             pass
 
